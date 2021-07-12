@@ -1,0 +1,55 @@
+---
+title: "Data-dr-wisnu"
+author: "Kadek Adit Wiryadana"
+date: "7/12/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Import Library
+```{r library}
+library(googlesheets4)
+```
+
+## Import Data from googlesheet
+```{r import_data}
+data <- read_sheet("https://docs.google.com/spreadsheets/d/1QgE55fiI572kAgryc5ruExvcAz1GuuDk1dIhdD6wyxY/edit#gid=0", sheet = 1)
+```
+## Sneak Peak
+```{r summary}
+head(data) # 5 data awal
+tail(data) # 5 data akhir
+names(data) # list semua column
+```
+### Class variabel
+```{r class_var}
+sapply(data, class)
+```
+### Recode Variabel
+```{r recode}
+# Recode jenis kelaim sebagai factor
+data$Jenis.Kelamin <- factor(data$Jenis.Kelamin, levels=c("laki laki","perempuan"))
+
+# Recode Gejala Utama sebagai factor
+data$Gejala.Utama <-  factor(data$Gejala.Utama)
+unique(data$Gejala.Utama)
+# Ubah entri seragam
+data$Gejala.Utama <- as.character(data$Gejala.Utama)
+data$Gejala.Utama <-  ifelse(data$Gejala.Utama == "demam", "Demam", data$Gejala.Utama) #ubah demam jadi Demam
+data$Gejala.Utama <-  ifelse(data$Gejala.Utama == "batuk", "Batuk", data$Gejala.Utama) #ubah batuk jadi Batuk
+data$Gejala.Utama <-  factor(data$Gejala.Utama)
+levels(data$Gejala.Utama)
+
+# ubah kolum 9 (gejala tambahan batuk) hingga 22 (gejala tambahan anosmia) jadi faktor
+gej_tam_coloumn <- (9:22)
+data[gej_tam_coloumn] <- lapply(data[gej_tam_coloumn], as.factor)
+sapply(data, class)
+```
+
+
+```{r recode}
+```
+
