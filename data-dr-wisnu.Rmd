@@ -12,17 +12,29 @@ knitr::opts_chunk$set(echo = TRUE)
 ## Import Library
 ```{r library}
 library(googlesheets4)
+library(tidyverse)
 ```
 
-## Import Data from googlesheet
-```{r import_data}
-data <- read_sheet("https://docs.google.com/spreadsheets/d/1QgE55fiI572kAgryc5ruExvcAz1GuuDk1dIhdD6wyxY/edit#gid=0", sheet = 1)
+## Import Data
+### google authentication
+```{r auth, eval=FALSE}
+googlesheets4::gs4_auth()
+```
+
+### Import Data from googlesheet
+```{r import_data, eval=FALSE}
+data <- read_sheet("https://docs.google.com/spreadsheets/d/1QgE55fiI572kAgryc5ruExvcAz1GuuDk1dIhdD6wyxY/edit#gid=0")
+```
+
+### Write to local
+```{r reread, warning=FALSE}
+write_csv(data, "data.csv")
+data <- read_csv("data.csv")
 ```
 ## Sneak Peak
 ```{r summary}
 head(data) # 5 data awal
-tail(data) # 5 data akhir
-names(data) # list semua column
+glimpse(data)
 ```
 ### Class variabel
 ```{r class_var}
@@ -43,10 +55,10 @@ data$Gejala.Utama <-  ifelse(data$Gejala.Utama == "batuk", "Batuk", data$Gejala.
 data$Gejala.Utama <-  factor(data$Gejala.Utama)
 levels(data$Gejala.Utama)
 
-# ubah kolum 9 (gejala tambahan batuk) hingga 22 (gejala tambahan anosmia) jadi faktor
-gej_tam_coloumn <- (9:22)
+# ubah kolum 9 (gejala tambahan batuk) hingga 22 (gejala tambahan anosmia), 24-33 jadi faktor
+gej_tam_coloumn <- c(9:22, 24:33, 40, 42:44)
 data[gej_tam_coloumn] <- lapply(data[gej_tam_coloumn], as.factor)
-sapply(data, class)
+glimpse(data)
 ```
 
 
