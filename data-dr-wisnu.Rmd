@@ -48,6 +48,10 @@ glimpse(data)
 ```
 ### Recode Variabel
 ```{r recode}
+# Rename variabel
+colnames(data)[24] <- "Komorbid_HT" 
+colnames(data)[25] <- "Komorbid_DM" 
+
 # Recode jenis kelaim sebagai factor
 data$Jenis.Kelamin <- factor(data$Jenis.Kelamin, levels=c("laki laki","perempuan"))
 
@@ -86,7 +90,7 @@ summary(data$Derajat_new)
 
 ### General Summary  
 ```{r general_summary}
-summary(data[4:43])
+summary(data[4:45])
 ```
 
 ### Demographics
@@ -115,7 +119,7 @@ coord_flip()
 
 print(age_dist)
 
-(age_dist | demog)
+
 
 
 ```
@@ -142,8 +146,8 @@ komorbid
 
 ```{r}
 komorbid_list <- list(
- Hipertensi = select(filter(data, `komorbid HT` == "ya"), No),
- Diabetes = select(filter(data, `Komorbid DM` == "ya"), No),
+ Hipertensi = select(filter(data, Komorbid_HT == "ya"), No),
+ Diabetes = select(filter(data, Komorbid_DM == "ya"), No),
  'Tanpa Komorbid' = select(filter(data, Komorbid == "tidak"), No)
  )
 
@@ -185,9 +189,19 @@ outcome
 
 ### Outcome, age, DM & HT
 ```{r}
-interaction <- ggplot(data = data, aes(x=Umur, y=Derajat_new, col="komorbid HT", fill="Komorbid DM", shape=Derajat_new)) +
-  geom_point()
+interaction <- ggplot(data = data, aes(x=Umur, y=Derajat_new, shape=Derajat_new,  colour=Komorbid_DM, fill=Komorbid_HT)) +
+  geom_jitter(height=0.25) +
+  scale_shape_manual(values=c(21,22,24))
   
 interaction
+```
+
+```{r}
+interaction2 <- ggplot(data = data, aes(x=Umur, y=Derajat_new)) +
+  geom_jitter(height=0.15, aes(shape=Derajat_new,  colour=Komorbid_DM, fill=Komorbid_HT)) +
+  #ggdist::stat_halfeye(justification=1.5, side="bottom", adjust=0.8, .width=0, width=0.5, height=0.3, point_colour=NA, aes(fill=Derajat_new)) +
+  geom_boxplot(width=0.2, alpha=0.3, position = "dodge") +
+  scale_shape_manual(values=c(21,22,24))
+interaction2
 ```
 
