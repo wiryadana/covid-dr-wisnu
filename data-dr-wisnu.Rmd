@@ -13,6 +13,12 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r library}
 library(googlesheets4)
 library(tidyverse)
+library(patchwork)
+library(gt)
+library(gtsummary)
+library(flextable)
+library(ggdist)
+library(ggVennDiagram)
 ```
 
 ## Import Data
@@ -24,11 +30,11 @@ googlesheets4::gs4_auth()
 ### Import Data from googlesheet
 ```{r import_data, eval=FALSE}
 data <- read_sheet("https://docs.google.com/spreadsheets/d/1QgE55fiI572kAgryc5ruExvcAz1GuuDk1dIhdD6wyxY/edit#gid=0")
+write_csv(data, "data.csv")
 ```
 
-### Write to local
+### read data
 ```{r reread, warning=FALSE}
-write_csv(data, "data.csv")
 data <- read_csv("data.csv")
 ```
 ## Sneak Peak
@@ -37,8 +43,8 @@ head(data) # 5 data awal
 glimpse(data)
 ```
 ### Class variabel
-```{r class_var}
-sapply(data, class)
+```{r class_var, eval=FALSE}
+#sapply(data, class)
 ```
 ### Recode Variabel
 ```{r recode}
@@ -60,8 +66,128 @@ gej_tam_coloumn <- c(9:22, 24:33, 40, 42:44)
 data[gej_tam_coloumn] <- lapply(data[gej_tam_coloumn], as.factor)
 glimpse(data)
 ```
+### Derajat Covid Diseragamkan
+```{r}
+summary(data$Derajat.Covid)
+
+# berat ada versi, kritis ada 2 versi.
+data$Derajat_new <- as.character(data$Derajat.Covid)
+data$Derajat_new <- ifelse(data$Derajat_new == "Berat", "berat", data$Derajat_new) # Berat jadi berat
+data$Derajat_new <- ifelse(data$Derajat_new == "berat(?)", "berat", data$Derajat_new) # berat(?) jadi berat
+
+data$Derajat_new <- ifelse(grepl("kritis ", data$Derajat_new), "kritis", data$Derajat_new)
+data$Derajat_new <- as.factor(data$Derajat_new)
+summary(data$Derajat_new)
+```
 
 
-```{r recode}
+
+## Descriptive Analysis
+
+### General Summary  
+```{r general_summary}
+summary(data[4:43])
+```
+
+### Demographics
+```{r demog_table}
+demog <- data %>% 
+  select(Jenis.Kelamin,
+         Umur) %>% 
+  tbl_summary() %>% as_flex_table()
+
+```
+
+#### Data-vis Demographics
+```{r}
+age_dist <- ggplot(data = data, aes(x= Jenis.Kelamin, y=Umur, fill=Jenis.Kelamin)) +
+  ggdist::stat_halfeye(adjust=0.5, width=0.6, .width=0, justification=-0.2, point_colour=NA) +
+  geom_boxplot(width=0.12, alpha=0.5) +
+  ggdist::stat_dots(side="left", justification=1.12, binwidth=1) +
+  theme_minimal() +
+  labs(
+    title = " Distribusi Usia Berdasarkan Jenis Kelamin",
+    y = "Usia (tahun)",
+    x = "Jenis Kelamin",
+    fill="Jenis Kelamin"
+  ) +
+coord_flip()
+
+print(age_dist)
+
+(age_dist | demog)
+
+
+```
+
+
+
+### Gejala
+```{r}
+gejala <- data %>%
+  select(9:22) %>% 
+  tbl_summary()
+
+gejala
+```
+
+### Komorbid
+```{r}
+komorbid <- data %>%
+  select(24:31) %>% 
+  tbl_summary()
+
+komorbid
+```
+
+```{r}
+komorbid_list <- list(
+ Hipertensi = select(filter(data, `komorbid HT` == "ya"), No),
+ Diabetes = select(filter(data, `Komorbid DM` == "ya"), No),
+ 'Tanpa Komorbid' = select(filter(data, Komorbid == "tidak"), No)
+ )
+
+komorbid_list <- lapply(komorbid_list, pull)
+
+komorbid_venn <- ggVennDiagram(komorbid_list, show_intersect = F)
+
+komorbid_venn
+
+```
+
+
+
+### Treatment & Control
+```{r}
+treat <- data %>%
+  select(32,33) %>%
+  tbl_summary()
+
+treat
+```
+### Finding
+```{r}
+xray <- data %>%
+  select(Xray) %>%
+  tbl_summary()
+
+xray
+```
+
+### Outcome
+```{r}
+outcome <- data %>%
+  select(41:44) %>%
+  tbl_summary()
+
+outcome
+```
+
+### Outcome, age, DM & HT
+```{r}
+interaction <- ggplot(data = data, aes(x=Umur, y=Derajat_new, col="komorbid HT", fill="Komorbid DM", shape=Derajat_new)) +
+  geom_point()
+  
+interaction
 ```
 
