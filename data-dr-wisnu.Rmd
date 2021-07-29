@@ -21,6 +21,7 @@ library(ggdist)
 library(ggVennDiagram)
 library(ggsignif)
 library(ggpubr)
+library(grid)
 ```
 
 ## Import Data
@@ -216,10 +217,9 @@ treat_by_Severity <- data %>%
 treat_by_Severity
 ```
 
-### Finding
+### Xray Finding
 ```{r}
 ### recode seragamkan pneumonia
-data$Xray 
 data$Xray <- ifelse(grepl("pneumonia ?", x=as.character(data$Xray)), "pneumonia", as.character(data$Xray))
 data$Xray <- as.factor(data$Xray)
 
@@ -279,6 +279,8 @@ data$Derajat_new <- factor(data$Derajat_new, levels = c("sedang", "berat", "krit
 
 anova_int <- summary(aov(data=data, Umur ~ Derajat_new))
 anova_int
+
+anova_p <- anova_int[[1]][[1,"Pr(>F)"]]
 
 anova_text <- paste0("Anova", " ", "p=", anova_int[[1]][[1,"Pr(>F)"]]," ", "(p=",  ifelse(anova_p <= 0.001, print("<0,001"), NA)[1], ")") 
 
