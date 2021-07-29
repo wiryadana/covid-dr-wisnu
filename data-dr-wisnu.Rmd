@@ -100,8 +100,17 @@ summary(data[4:45])
 demog <- data %>% 
   select(Jenis.Kelamin,
          Umur) %>% 
-  tbl_summary() %>% as_flex_table()
+  tbl_summary(statistic = list(all_continuous() ~ "{mean} ({sd})")) %>% 
+  as_flex_table()
+demog
 
+age_by_gender <- data %>% 
+  select(Umur, Jenis.Kelamin) %>% 
+  tbl_summary(by=Jenis.Kelamin,
+              statistic = list(all_continuous() ~ "{mean} ({sd})")) %>%
+  add_p(test=list(all_continuous() ~ "t.test", all_categorical() ~ "fisher.test")) %>%
+  as_flex_table()
+age_by_gender
 ```
 
 #### Data-vis Demographics
@@ -141,6 +150,13 @@ gejala <- data %>%
   tbl_summary()
 
 gejala
+
+gejala_by_severity <- data %>%
+  select(9:22,45) %>% 
+  tbl_summary(by=Derajat_new, missing = "no") %>%
+  add_p(test=list(all_continuous() ~ "t.test", all_categorical() ~ "fisher.test"))
+
+gejala_by_severity
 ```
 
 ### Komorbid
@@ -148,6 +164,13 @@ gejala
 komorbid <- data %>%
   select(24:31) %>% 
   tbl_summary()
+
+komorbid
+
+komorbid <- data %>%
+  select(24:31,45) %>% 
+  tbl_summary(by=Derajat_new) %>%
+  add_p(test=list(all_categorical() ~ "fisher.test"))
 
 komorbid
 ```
@@ -176,26 +199,64 @@ treat <- data %>%
   tbl_summary()
 
 treat
+
+### Perbaiki tidak memiliki komorbid pada treatment anggap missing
+data$Treatment <- na_if(data$Treatment, 2)
+data$Treatment <- factor(data$Treatment, levels=c("tidak", "ya"))
+
+### perbaiki tidak memiliki komorbid pada terkontrol anggap missing
+data$Terkontrol <- na_if(data$Terkontrol, 2)
+data$Terkontrol <- factor(data$Terkontrol, levels=c("tidak", "ya"))
+
+treat_by_Severity <- data %>%
+  select(32,33,45) %>%
+  tbl_summary(by=Derajat_new, missing = "no") %>%
+  add_p(test=list(all_categorical() ~ "fisher.test"))
+
+treat_by_Severity
 ```
+
 ### Finding
 ```{r}
+### recode seragamkan pneumonia
+data$Xray 
+data$Xray <- ifelse(grepl("pneumonia ?", x=as.character(data$Xray)), "pneumonia", as.character(data$Xray))
+data$Xray <- as.factor(data$Xray)
+
 xray <- data %>%
   select(Xray) %>%
   tbl_summary()
-
 xray
+
+xray_by_severity <- data %>%
+  select(Xray, Derajat_new) %>%
+  tbl_summary(by=Derajat_new, missing = "no") %>%
+  add_p(test=list(all_categorical() ~ "fisher.test"))
+
+xray_by_severity
 ```
 
 ### Outcome
 ```{r}
 outcome <- data %>%
-  select(41:44) %>%
+  select(41,43:45) %>%
   tbl_summary()
 
 outcome
+
+### perbaiki rujukan
+data$rujukan <- ifelse(grepl("([Ss]anglah|wangaya)", as.character(data$Rujuk)), "Rujuk", as.character(data$Rujuk))
+data$rujukan <- as.factor(data$rujukan)
+
+outcome_by_severity <- data %>%
+  select(41,44:46) %>%
+  tbl_summary(by=Derajat_new, statistic = list(all_continuous() ~ "{mean} ({sd})")) %>%
+  add_p(test=list(all_categorical() ~ "fisher.test", all_continuous() ~ "aov"))
+
+outcome_by_severity
 ```
 
-### Outcome, age, DM & HT
+### Derajat, usia, DM & HT
 ```{r include=F}
 interaction <- ggplot(data = data, aes(x=Umur, y=Derajat_new, shape=Derajat_new,  colour=Komorbid_DM, fill=Komorbid_HT)) +
   geom_jitter(height=0.25) +
@@ -254,5 +315,54 @@ xmax <- max(data$Umur)
 
 interaction3 + annotation_custom(grob = grob3b, xmin = xmin, xmax = xmax, ymin = 0.0 , ymax = 3.3) + annotation_custom(grob_anova)
 ggsave("interaction.jpg", bg="white")
+```
+
+### Derajat dan lama Rawat Inap
+```{r}
+data$Derajat_new <- factor(data$Derajat_new, levels = c("sedang", "berat", "kritis"))
+
+### Anova
+anova_los <- summary(aov(data=data, Durasi.Rawat.Inap ~ Derajat_new))
+anova_los
+
+anova_p_los <-anova_los[[1]][[1,"Pr(>F)"]]
+
+anova_los_text <- paste0("Anova", " ", "p=", anova_los[[1]][[1,"Pr(>F)"]]," ", "(p=",  ifelse(anova_p_los <= 0.001, print("<0,001"), NA)[1], ")") 
+
+grob_anova_los <- grobTree(textGrob(anova_los_text, x=0.60,  y=0.95, hjust=0, gp=gpar(fontsize=8, fontface="italic")))
+
+
+los <- ggplot(data=data, aes(x=Durasi.Rawat.Inap, y=Derajat_new)) +
+   geom_jitter(height=0.15, alpha=0.7, aes(shape=Derajat_new,  colour=rujukan, fill=meninggal), show.legend = F, size=2.5) +
+  scale_color_manual(values = c("#FF3D68", "#FFFFFF")) + # outline warna merah/oranye artinya rujuk
+  scale_fill_manual(values = c("#FFAA4C", "#FFFFFF")) + # isi warna merah artinya meninggal
+  scale_shape_manual(values=c(21,22,24)) +
+  theme_minimal() +
+  xlab("Lama Rawat Inap (Hari)") +
+  ylab("Derajat Klinis COVID-19") +
+  theme(axis.title.x = element_text(family="arial", face="bold", colour="black", size=14)) +
+  theme(axis.title.y = element_text(family="arial", face="bold", colour="black", size=14)) +
+  theme(axis.text.x = element_text(family="arial", face="plain", colour="black", size=12)) +
+  theme(axis.text.y = element_text(family="arial", face="plain", colour="black", size=12)) +
+  scale_x_continuous(breaks=c(seq(from=0, to=18, by=1))) + 
+  scale_y_discrete(labels=c("Sedang", "Berat", "Kritis"))
+      
+los
+
+
+los_boxplot <- ggplot(data = data, aes(x=Durasi.Rawat.Inap, y=Derajat_new)) +
+  geom_boxplot(width=0.2, alpha=0.3, position = "dodge", aes(fill=Derajat_new), show.legend=F) +
+  scale_fill_manual(values = c("#FDD2BF", "#E98580", "#DF5E5E")) +
+  theme_transparent()
+
+los_boxplot
+
+grob_los <- ggplotGrob(los_boxplot)
+
+xmin <- min(data$Durasi.Rawat.Inap)
+xmax <- max(data$Durasi.Rawat.Inap)
+
+los + annotation_custom(grob = grob_los, xmin = xmin, xmax = xmax, ymin = 0.0 , ymax = 3.3) + annotation_custom(grob_anova_los)
+ggsave("los.jpg", bg="white")
 ```
 
