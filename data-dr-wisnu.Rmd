@@ -1,8 +1,10 @@
 ---
-title: "Data-dr-wisnu"
+title: "Hasil Penelitian COVID-19 dr Wisnu"
 author: "Kadek Adit Wiryadana"
-date: "7/12/2021"
-output: html_document
+date: "last Updated `r Sys.time()`"
+output:
+  html_document: 
+    code_folding: hide
 ---
 
 ```{r setup, include=FALSE}
@@ -10,7 +12,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ## Import Library
-```{r library}
+```{r library, warning=FALSE, message=FALSE}
 library(googlesheets4)
 library(tidyverse)
 library(patchwork)
@@ -37,18 +39,15 @@ write_csv(data, "data.csv")
 ```
 
 ### read data
-```{r reread, warning=FALSE}
+```{r reread, warning=FALSE, message=FALSE}
 data <- read_csv("data.csv")
 ```
 ## Sneak Peak
 ```{r summary}
-head(data) # 5 data awal
+#head(data, 1) # 1 data awal
 glimpse(data)
 ```
-### Class variabel
-```{r class_var, eval=FALSE}
-#sapply(data, class)
-```
+
 ### Recode Variabel
 ```{r recode}
 # Rename variabel
@@ -66,7 +65,7 @@ data$Gejala.Utama <- as.character(data$Gejala.Utama)
 data$Gejala.Utama <-  ifelse(data$Gejala.Utama == "demam", "Demam", data$Gejala.Utama) #ubah demam jadi Demam
 data$Gejala.Utama <-  ifelse(data$Gejala.Utama == "batuk", "Batuk", data$Gejala.Utama) #ubah batuk jadi Batuk
 data$Gejala.Utama <-  factor(data$Gejala.Utama)
-levels(data$Gejala.Utama)
+#levels(data$Gejala.Utama)
 
 # ubah kolum 9 (gejala tambahan batuk) hingga 22 (gejala tambahan anosmia), 24-33 jadi faktor
 gej_tam_coloumn <- c(9:22, 24:33, 40, 42:44)
@@ -97,6 +96,17 @@ summary(data[4:45])
 ```
 
 ### Demographics
+#### Exclude usia <18 thn
+```{r}
+data %>% 
+  filter(Umur < 18) %>%
+  select(Nama, Umur, Jenis.Kelamin, Derajat_new)
+data <- data %>%
+  filter(Umur >= 18)
+```
+
+
+#### Summary Table Demographics
 ```{r demog_table}
 demog <- data %>% 
   select(Jenis.Kelamin,
@@ -108,9 +118,17 @@ demog
 age_by_gender <- data %>% 
   select(Umur, Jenis.Kelamin) %>% 
   tbl_summary(by=Jenis.Kelamin,
-              statistic = list(all_continuous() ~ "{mean} ({sd})")) %>%
+              type = all_continuous() ~ "continuous2",
+              digits = all_continuous() ~ 2,
+              statistic = all_continuous() ~ c("{mean} ({sd})",
+                                               "{N_nonmiss}",
+                                               "{median} ({p25}, {p75})",
+                                               "{min}, {max}")
+              ) %>%
   add_p(test=list(all_continuous() ~ "t.test", all_categorical() ~ "fisher.test")) %>%
-  as_flex_table()
+  add_n() %>%
+  add_overall()
+  
 age_by_gender
 ```
 
@@ -146,6 +164,10 @@ ggsave("distribusi usia.jpg", bg="white")
 
 ### Gejala
 ```{r}
+### Recode factor
+gejala_tam_coloumn <- c(9:22)
+data[,gejala_tam_coloumn] <- lapply(data[,gejala_tam_coloumn], factor, levels=c("ya", "tidak"))
+
 gejala <- data %>%
   select(9:22) %>% 
   tbl_summary()
@@ -154,24 +176,37 @@ gejala
 
 gejala_by_severity <- data %>%
   select(9:22,45) %>% 
-  tbl_summary(by=Derajat_new, missing = "no") %>%
-  add_p(test=list(all_continuous() ~ "t.test", all_categorical() ~ "fisher.test"))
+  tbl_summary(by=Derajat_new, missing = "no", percent = "row") %>%
+  add_p(test=list(all_continuous() ~ "t.test", all_categorical() ~ "fisher.test")) %>%
+  add_n() %>%
+  add_overall()
 
 gejala_by_severity
 ```
 
 ### Komorbid
 ```{r}
+### Recode Gejala Overall
+data$peny.komorbid <- ifelse(is.na(data$Komorbid), "tidak", data$Komorbid)
+data$peny.komorbid <- ifelse(grepl("tidak", data$peny.komorbid), "tidak", "ada")
+data$peny.komorbid <- as.factor(data$peny.komorbid)
+
+### recode levels
+komorbid_coloumn <- c(24:31)
+data[,komorbid_coloumn] <- lapply(data[,komorbid_coloumn], factor, levels=c("ya", "tidak"))
+
 komorbid <- data %>%
-  select(24:31) %>% 
+  select(24:31,peny.komorbid) %>% 
   tbl_summary()
 
 komorbid
 
 komorbid <- data %>%
-  select(24:31,45) %>% 
-  tbl_summary(by=Derajat_new) %>%
-  add_p(test=list(all_categorical() ~ "fisher.test"))
+  select(24:31,45,peny.komorbid) %>% 
+  tbl_summary(by=Derajat_new, percent = "row") %>%
+  add_p(test=list(all_categorical() ~ "fisher.test")) %>%
+  add_n() %>%
+  add_overall()
 
 komorbid
 ```
@@ -211,8 +246,10 @@ data$Terkontrol <- factor(data$Terkontrol, levels=c("tidak", "ya"))
 
 treat_by_Severity <- data %>%
   select(32,33,45) %>%
-  tbl_summary(by=Derajat_new, missing = "no") %>%
-  add_p(test=list(all_categorical() ~ "fisher.test"))
+  tbl_summary(by=Derajat_new, missing = "no", percent = "row") %>%
+  add_p(test=list(all_categorical() ~ "fisher.test")) %>%
+  add_n() %>%
+  add_overall()
 
 treat_by_Severity
 ```
@@ -230,28 +267,37 @@ xray
 
 xray_by_severity <- data %>%
   select(Xray, Derajat_new) %>%
-  tbl_summary(by=Derajat_new, missing = "no") %>%
-  add_p(test=list(all_categorical() ~ "fisher.test"))
+  tbl_summary(by=Derajat_new, missing = "no", , percent = "row") %>%
+  add_p(test=list(all_categorical() ~ "fisher.test")) %>%
+  add_n() %>%
+  add_overall()
 
 xray_by_severity
 ```
 
 ### Outcome
 ```{r}
-outcome <- data %>%
-  select(41,43:45) %>%
-  tbl_summary()
-
-outcome
-
 ### perbaiki rujukan
 data$rujukan <- ifelse(grepl("([Ss]anglah|wangaya)", as.character(data$Rujuk)), "Rujuk", as.character(data$Rujuk))
 data$rujukan <- as.factor(data$rujukan)
 
+### Missing data meninggal dianggap tidak meninggal
+data$meninggal <- ifelse(is.na(data$meninggal), "tidak", "ya")
+data$meninggal <- factor(data$meninggal, levels = c("ya", "tidak"))
+
+outcome <- data %>%
+  select(41,44:46) %>%
+  tbl_summary()
+
+outcome
+
+
 outcome_by_severity <- data %>%
   select(41,44:46) %>%
-  tbl_summary(by=Derajat_new, statistic = list(all_continuous() ~ "{mean} ({sd})")) %>%
-  add_p(test=list(all_categorical() ~ "fisher.test", all_continuous() ~ "aov"))
+  tbl_summary(by=Derajat_new, percent = "row", statistic = list(all_continuous() ~ "{mean} ({sd})")) %>%
+  add_p(test=list(all_categorical() ~ "fisher.test", all_continuous() ~ "aov")) %>%
+  add_n() %>%
+  add_overall()
 
 outcome_by_severity
 ```
@@ -262,7 +308,7 @@ interaction <- ggplot(data = data, aes(x=Umur, y=Derajat_new, shape=Derajat_new,
   geom_jitter(height=0.25) +
   scale_shape_manual(values=c(21,22,24))
   
-interaction
+#interaction
 ```
 
 ```{r include=FALSE}
@@ -271,7 +317,7 @@ interaction2 <- ggplot(data = data, aes(x=Umur, y=Derajat_new)) +
   #ggdist::stat_halfeye(justification=1.5, side="bottom", adjust=0.8, .width=0, width=0.5, height=0.3, point_colour=NA, aes(fill=Derajat_new)) +
   geom_boxplot(width=0.2, alpha=0.3, position = "dodge") +
   scale_shape_manual(values=c(21,22,24))
-interaction2
+#interaction2
 ```
 
 ```{r}
@@ -288,8 +334,8 @@ grob_anova <- grobTree(textGrob(anova_text, x=0.03,  y=0.95, hjust=0, gp=gpar(fo
 
 interaction3 <- ggplot(data = data, aes(x=Umur, y=Derajat_new)) +
   geom_jitter(height=0.15, alpha=0.7, aes(shape=Derajat_new,  colour=Komorbid_DM, fill=Komorbid_HT), show.legend = F, size=2.5) +
-  scale_color_manual(values = c("#5089C6","#FF3D68")) + # outline warna merah/oranye artinya HT
-  scale_fill_manual(values = c("#FFFFFF", "#FFAA4C")) + # isi warna merah artinya DM
+  scale_color_manual(values = c("#FF3D68", "#5089C6")) + # outline warna merah/oranye artinya HT
+  scale_fill_manual(values = c("#FFAA4C", "#FFFFFF")) + # isi warna merah artinya DM
   scale_shape_manual(values=c(21,22,24)) +
   theme_minimal() +
   xlab("Usia Pasien (Tahun)") +
@@ -302,13 +348,13 @@ interaction3 <- ggplot(data = data, aes(x=Umur, y=Derajat_new)) +
   scale_y_discrete(labels=c("Sedang", "Berat", "Kritis"))
   
   
-interaction3
+#interaction3
 
 interaction3b <- ggplot(data = data, aes(x=Umur, y=Derajat_new)) +
   geom_boxplot(width=0.2, alpha=0.3, position = "dodge", aes(fill=Derajat_new), show.legend=F) +
   scale_fill_manual(values = c("#FDD2BF", "#E98580", "#DF5E5E")) +
   theme_transparent()
-interaction3b
+#interaction3b
 
 grob3b <- ggplotGrob(interaction3b)
 
@@ -336,7 +382,7 @@ grob_anova_los <- grobTree(textGrob(anova_los_text, x=0.60,  y=0.95, hjust=0, gp
 
 los <- ggplot(data=data, aes(x=Durasi.Rawat.Inap, y=Derajat_new)) +
    geom_jitter(height=0.15, alpha=0.7, aes(shape=Derajat_new,  colour=rujukan, fill=meninggal), show.legend = F, size=2.5) +
-  scale_color_manual(values = c("#FF3D68", "#FFFFFF")) + # outline warna merah/oranye artinya rujuk
+  scale_color_manual(values = c("#FF3D68", "#5089C6")) + # outline warna merah/oranye artinya rujuk
   scale_fill_manual(values = c("#FFAA4C", "#FFFFFF")) + # isi warna merah artinya meninggal
   scale_shape_manual(values=c(21,22,24)) +
   theme_minimal() +
@@ -349,7 +395,7 @@ los <- ggplot(data=data, aes(x=Durasi.Rawat.Inap, y=Derajat_new)) +
   scale_x_continuous(breaks=c(seq(from=0, to=18, by=1))) + 
   scale_y_discrete(labels=c("Sedang", "Berat", "Kritis"))
       
-los
+#los
 
 
 los_boxplot <- ggplot(data = data, aes(x=Durasi.Rawat.Inap, y=Derajat_new)) +
@@ -357,7 +403,7 @@ los_boxplot <- ggplot(data = data, aes(x=Durasi.Rawat.Inap, y=Derajat_new)) +
   scale_fill_manual(values = c("#FDD2BF", "#E98580", "#DF5E5E")) +
   theme_transparent()
 
-los_boxplot
+#los_boxplot
 
 grob_los <- ggplotGrob(los_boxplot)
 
@@ -366,5 +412,115 @@ xmax <- max(data$Durasi.Rawat.Inap)
 
 los + annotation_custom(grob = grob_los, xmin = xmin, xmax = xmax, ymin = 0.0 , ymax = 3.3) + annotation_custom(grob_anova_los)
 ggsave("los.jpg", bg="white")
+```
+
+
+### Derajat dan Saturasi
+```{r}
+### Data Saturasi kenapa ada yg persen ada yg ga persen :(
+data$Saturasi <- ifelse(data$Saturasi <= 1, data$Saturasi * 100, data$Saturasi) 
+
+
+### Anova
+anova_sat <- summary(aov(data=data, Saturasi ~ Derajat_new))
+anova_sat
+
+anova_p_sat <-anova_sat[[1]][[1,"Pr(>F)"]]
+
+anova_sat_text <- paste0("Anova", " ", "p=", anova_sat[[1]][[1,"Pr(>F)"]]," ", "(p=",  ifelse(anova_p_sat <= 0.001, print("<0,001"), NA)[1], ")") 
+
+grob_anova_sat <- grobTree(textGrob(anova_sat_text, x=0.60,  y=0.95, hjust=0, gp=gpar(fontsize=8, fontface="italic")))
+
+
+sat <- ggplot(data=data, aes(x=Saturasi, y=Derajat_new)) +
+   geom_jitter(height=0.15, alpha=0.7, aes(shape=Derajat_new,  colour=rujukan, fill=meninggal), show.legend = F, size=2.5) +
+  scale_color_manual(values = c("#FF3D68", "#5089C6")) + # outline warna merah/oranye artinya rujuk
+  scale_fill_manual(values = c("#FFAA4C", "#FFFFFF")) + # isi warna merah artinya meninggal
+  scale_shape_manual(values=c(21,22,24)) +
+  theme_minimal() +
+  xlab("Saturasi Oksigen Darah Perifer (%)") +
+  ylab("Derajat Klinis COVID-19") +
+  theme(axis.title.x = element_text(family="arial", face="bold", colour="black", size=14)) +
+  theme(axis.title.y = element_text(family="arial", face="bold", colour="black", size=14)) +
+  theme(axis.text.x = element_text(family="arial", face="plain", colour="black", size=12)) +
+  theme(axis.text.y = element_text(family="arial", face="plain", colour="black", size=12)) +
+  #scale_x_continuous(limits = c(60,100)) +
+  scale_x_continuous(limits = c(65,100), breaks=c(seq(from=65, to=100, by=5))) + 
+  scale_y_discrete(labels=c("Sedang", "Berat", "Kritis"))
+      
+#sat
+
+sat_boxplot <- ggplot(data = data, aes(x=Saturasi, y=Derajat_new)) +
+  geom_boxplot(width=0.2, alpha=0.3, position = "dodge", aes(fill=Derajat_new), show.legend=F) +
+  scale_fill_manual(values = c("#FDD2BF", "#E98580", "#DF5E5E")) +
+  theme_transparent()
+
+#sat_boxplot
+
+grob_sat <- ggplotGrob(sat_boxplot)
+
+xmin <- min(data$Saturasi)
+xmax <- max(data$Saturasi)
+
+sat + annotation_custom(grob = grob_sat, xmin = xmin, xmax = xmax, ymin = 0.0 , ymax = 3.3) + annotation_custom(grob_anova_sat)
+ggsave("saturasi.jpg", bg="white")
+```
+
+
+___
+***
+
+## Derajat (Sedang & Berat-Kritis) vs everything else
+Analisa jika derajat klinis berat dan kritis digabungkan (menjadi tabel 2x2), sehingga memaksimalkan sampel dan mempermudah interpretasi. 
+
+```{r}
+### Recode Derajat menjadi Sedang dan Berat-Kritis
+data$derajat_klinis <- ifelse(grepl("(berat|kritis)", as.character(data$Derajat_new)), "berat/kritis", as.character(data$Derajat_new))
+data$derajat_klinis <- as.factor(data$derajat_klinis)
+summary(data$derajat_klinis)
+```
+
+### Summary Table 
+
+```{r}
+data %>%
+  select(4:5, 7, 9:22, peny.komorbid, 24:34, 40:41, 44, 46:48) %>%
+  tbl_summary(by=derajat_klinis,
+              statistic = list(all_continuous() ~ "{mean} ({sd})", all_categorical() ~ "{n} ({p}%)"),
+              percent = "row",
+              missing = "no") %>%
+  add_p(test= list(all_continuous() ~ "t.test", all_categorical() ~ "fisher.test")) %>%
+  add_overall() %>%
+  add_n() %>%
+  modify_caption("<b>Table X.</b> Rangkuman data demografi, klinis dan luaran berdasarkan derajat klinis COVID-19") %>%
+  modify_spanning_header(c("stat_1", "stat_2") ~ "**Derajat Klinis COVID-19**") %>%
+  modify_header(label ~ "**Variabel**") %>%
+  bold_labels()
+```
+
+
+### Citation
+|R Core Team (2021). R: A language and environment for statistical computing. R Foundation for
+|  Statistical Computing, Vienna, Austria. URL https://www.R-project.org/.
+|Jennifer Bryan (2021). googlesheets4: Access Google Sheets using the Sheets API V4. R package
+|  version 0.3.0. https://CRAN.R-project.org/package=googlesheets4
+|Wickham et al., (2019). Welcome to the tidyverse. Journal of Open Source Software, 4(43),
+|  1686, https://doi.org/10.21105/joss.01686
+|H. Wickham. ggplot2: Elegant Graphics for Data Analysis. Springer-Verlag New York, 2016.
+|Richard Iannone, Joe Cheng and Barret Schloerke (2021). gt: Easily Create Presentation-Ready
+|  Display Tables. R package version 0.3.0. https://CRAN.R-project.org/package=gt
+|Daniel D. Sjoberg, Michael Curry, Margie Hannum, Joseph Larmarange, Karissa Whiting and Emily
+|  C. Zabor (2021). gtsummary: Presentation-Ready Data Summary and Analytic Result Tables. R
+|  package version 1.4.2. https://CRAN.R-project.org/package=gtsummary
+|Chun-Hui Gao (2021). ggVennDiagram: A 'ggplot2' Implement of Venn Diagram. R package version
+|  1.1.4. https://CRAN.R-project.org/package=ggVennDiagram
+|Kay M (2021). _ggdist: Visualizations of Distributions and Uncertainty_. doi:
+|  10.5281/zenodo.3879620 (URL: https://doi.org/10.5281/zenodo.3879620), R package version 3.0.0,
+|  <URL: https://mjskay.github.io/ggdist/>.  
+  
+```{r, echo=FALSE}
+package <- c("base", "googlesheets4", "tidyverse", "ggplot2", "gt", "gtsummary", "ggVennDiagram", "ggdist", "ggpubr", "patchwork")
+#lapply(package, citation)
+sessionInfo()
 ```
 
