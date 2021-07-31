@@ -28,11 +28,11 @@ library(gtsummary)
 library(flextable)
 library(ggdist)
 library(ggVennDiagram)
-library(ggsignif)
 library(ggpubr)
 library(grid)
 library(kableExtra)
 library(DT)
+library(cutpointr)
 ```
 
 ## Import Data
@@ -817,9 +817,107 @@ ggsave("los.jpg", bg="white")
 ## Multivariate {.tabset}
 
 ### Finding Cutoff Numeric Variable
+#### Usia
+```{r}
+cut_umur <- cutpointr(data=data, 
+          x=Umur, 
+          class=derajat_klinis, 
+          method = maximize_metric, 
+          metric = sum_sens_spec)
+s_cut_umur <- summary(cut_umur)
+p_cut_umur <- plot(cut_umur)
+s_cut_umur
+p_cut_umur
+```
+Optimal Cut Point untuk **Umur** adalah **`r cut_umur$optimal_cutpoint`** tahun.
+
+```{r}
+data$usia_cut <- ifelse(data$Umur < 50, "Kurang dari 50", "Lebih dari/sama 50")
+data$usia_cut <- factor(data$usia_cut, levels = c("Lebih dari/sama 50", "Kurang dari 50"))
+```
+
+#### Saturasi Oksigen 
+
+```{r}
+cut_sat <- cutpointr(data=data, 
+          x=Saturasi, 
+          class=derajat_klinis, 
+          method = maximize_metric, 
+          metric = sum_sens_spec)
+s_cut_sat <- summary(cut_sat)
+p_cut_sat <- plot(cut_sat)
+s_cut_sat
+p_cut_sat
+```
+
+Optimal Cut Point untuk **Saturasi** adalah **`r cut_sat$optimal_cutpoint`**%.
+
+```{r}
+data$saturasi_cut <- ifelse(data$Saturasi < 94, "Kurang dari 94%", "Lebih dari/sama 94%")
+data$saturasi_cut <- factor(data$saturasi_cut, levels = c("Kurang dari 94%", "Lebih dari/sama 94%"))
+```
+
+### Bivariate odd_ratio
+
+#### Recode Variabel Menjadi Binary
+```{r}
+### Xray
+data$xray_binary <- as.character(data$Xray)
+data$xray_binary <- ifelse(data$xray_binary == "normal", "Normal", "Abnormal")
+data$xray_binary <- factor(data$xray_binary, levels = c("Abnormal", "Normal"))
+
+### Gejala utama sesak
+data$gej.utama.sesak <- as.character(data$Gejala.Utama)
+data$gej.utama.sesak <- ifelse(data$gej.utama.sesak == "sesak", "Sesak Napas", "Bukan Sesak")
+data$gej.utama.sesak <- factor(data$gej.utama.sesak, levels = c("Sesak Napas", "Bukan Sesak"))
+```
+
+#### Bivariate Analysis
+```{r}
+data %>%
+  select(Jenis.Kelamin, usia_cut, gej.utama.sesak, saturasi_cut, xray_binary, peny.komorbid, derajat_klinis) %>%
+  tbl_summary(by=derajat_klinis,
+              statistic = list(all_continuous() ~ "{mean} ({sd})", all_categorical() ~ "{n} ({p}%)"),
+              percent = "row",
+              missing = "no") %>%
+  add_p(test= list(all_continuous() ~ "t.test", all_categorical() ~ "fisher.test")) %>%
+  add_overall() %>%
+  add_n() %>%
+  modify_caption("<b>Table Y.</b> Data Jenis Kelamin, Sesak, Saturasi, Xray, Komorbid berdasarkan derajat klinis COVID-19") %>%
+  modify_spanning_header(c("stat_1", "stat_2") ~ "**Derajat Klinis COVID-19**") %>%
+  modify_header(label ~ "**Variabel**") %>%
+  bold_labels()
+```
 
 
-### Building Regression Model
+Jenis kelamin tidak berhubungan dengan derajat klinis.
+Saturasi oksigen memberikan separasi 100 dari derajat klinis. Antara perfect predictor atau karena data yang kurang bervariasi. Jenis kelamin dan Saturasi oksigen tidak dimasukan ke Model Regresi Logistik.
+
+### Binary Logistic Regression
+```{r}
+### Refactor
+data$usia_cut <- factor(data$usia_cut, levels = c("Kurang dari 50", "Lebih dari/sama 50"))
+data$xray_binary <- factor(data$xray_binary, levels = c("Normal", "Abnormal"))
+data$gej.utama.sesak <- factor(data$gej.utama.sesak, levels = c("Bukan Sesak", "Sesak Napas"))
+data$peny.komorbid <- factor(data$peny.komorbid, levels = c("tidak", "ada"))
+data$derajat_klinis <- factor(data$derajat_klinis, levels = c("sedang", "berat/kritis"))
+
+
+
+logres <- glm(derajat_klinis ~ usia_cut + gej.utama.sesak + xray_binary + peny.komorbid,
+              data = data,
+              family = binomial)
+summary(logres)
+tbl_regression(logres, 
+               exponentiate = TRUE) %>%
+  add_global_p() %>%
+  bold_p(t = 0.05) %>%
+  bold_labels() %>%
+  italicize_levels() %>%
+  modify_caption("<b>Table Z.</b> <i>Adjusted Odd Ratio</i> dari beberapa prediktor derajat klinis COVID-19") %>%
+  modify_header(label ~ "**Variabel**")
+```
+
 
 # Citation {.tabset}
 **Detail for Reproducible Research**
@@ -847,9 +945,13 @@ ggsave("los.jpg", bg="white")
 
 *  Yihui Xie, Joe Cheng and Xianying Tan (2021). DT: A Wrapper of the JavaScript Library 'DataTables'. R package version 0.18. https://CRAN.R-project.org/package=DT
 
+* Thiele C, Hirschfeld G (2021). “cutpointr: Improved Estimation and Validation of Optimal Cutpoints in R.” _Journal of Statistical Software_, *98*(11), 1-27. doi: 10.18637/jss.v098.i11 (URL:https://doi.org/10.18637/jss.v098.i11).
+
+* Alboukadel Kassambara (2020). ggpubr: 'ggplot2' Based Publication Ready Plots. R package version 0.4.0. https://CRAN.R-project.org/package=ggpubr
+
 ## Session Info
 ```{r, echo=FALSE}
-package <- c("base", "googlesheets4", "tidyverse", "ggplot2", "gt", "gtsummary", "ggVennDiagram", "ggdist", "ggpubr", "patchwork", "DT")
+package <- c("base", "googlesheets4", "tidyverse", "ggplot2", "gt", "gtsummary", "ggVennDiagram", "ggdist", "ggpubr", "patchwork", "DT", "cutpointr")
 #lapply(package, citation)
 sessionInfo()
 ```
