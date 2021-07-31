@@ -11,6 +11,13 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+```{r echo=FALSE, fig.align='center'}
+knitr::include_graphics("coronavirus_red.jpeg")
+```
+
+
+# Preparation {.tabset}
+
 ## Import Library
 ```{r library, warning=FALSE, message=FALSE}
 library(googlesheets4)
@@ -24,6 +31,8 @@ library(ggVennDiagram)
 library(ggsignif)
 library(ggpubr)
 library(grid)
+library(kableExtra)
+library(DT)
 ```
 
 ## Import Data
@@ -42,7 +51,9 @@ write_csv(data, "data.csv")
 ```{r reread, warning=FALSE, message=FALSE}
 data <- read_csv("data.csv")
 ```
-## Sneak Peak
+
+# Early {.tabset}
+## Data Wrangling
 ```{r summary}
 #head(data, 1) # 1 data awal
 glimpse(data)
@@ -70,7 +81,7 @@ data$Gejala.Utama <-  factor(data$Gejala.Utama)
 # ubah kolum 9 (gejala tambahan batuk) hingga 22 (gejala tambahan anosmia), 24-33 jadi faktor
 gej_tam_coloumn <- c(9:22, 24:33, 40, 42:44)
 data[gej_tam_coloumn] <- lapply(data[gej_tam_coloumn], as.factor)
-glimpse(data)
+#glimpse(data)
 ```
 ### Derajat Covid Diseragamkan
 ```{r}
@@ -88,7 +99,7 @@ summary(data$Derajat_new)
 
 
 
-## Descriptive Analysis
+## Descriptive Analysis {.tabset}
 
 ### General Summary  
 ```{r general_summary}
@@ -164,9 +175,18 @@ ggsave("distribusi usia.jpg", bg="white")
 
 ### Gejala
 ```{r}
-### Recode factor
+### Fix Missing Data
 gejala_tam_coloumn <- c(9:22)
-data[,gejala_tam_coloumn] <- lapply(data[,gejala_tam_coloumn], factor, levels=c("ya", "tidak"))
+data[,gejala_tam_coloumn] <- lapply(data[,gejala_tam_coloumn], as.character)
+func_missing_data <-function(data) {
+    ifelse(grepl("ya", data), "Ada", "Tidak")
+}
+data[,gejala_tam_coloumn] <- lapply(data[,gejala_tam_coloumn], func_missing_data)
+                               
+
+### Recode factor
+
+data[,gejala_tam_coloumn] <- lapply(data[,gejala_tam_coloumn], factor, levels=c("Ada", "Tidak"))
 
 gejala <- data %>%
   select(9:22) %>% 
@@ -245,7 +265,7 @@ data$Terkontrol <- na_if(data$Terkontrol, 2)
 data$Terkontrol <- factor(data$Terkontrol, levels=c("tidak", "ya"))
 
 treat_by_Severity <- data %>%
-  select(32,33,45) %>%
+  select(peny.komorbid,32,33,45) %>%
   tbl_summary(by=Derajat_new, missing = "no", percent = "row") %>%
   add_p(test=list(all_categorical() ~ "fisher.test")) %>%
   add_n() %>%
@@ -302,7 +322,7 @@ outcome_by_severity <- data %>%
 outcome_by_severity
 ```
 
-### Derajat, usia, DM & HT
+### Grafik Derajat, usia, DM & HT
 ```{r include=F}
 interaction <- ggplot(data = data, aes(x=Umur, y=Derajat_new, shape=Derajat_new,  colour=Komorbid_DM, fill=Komorbid_HT)) +
   geom_jitter(height=0.25) +
@@ -365,7 +385,7 @@ interaction3 + annotation_custom(grob = grob3b, xmin = xmin, xmax = xmax, ymin =
 ggsave("interaction.jpg", bg="white")
 ```
 
-### Derajat dan lama Rawat Inap
+### Grafik Derajat dan lama Rawat Inap
 ```{r}
 data$Derajat_new <- factor(data$Derajat_new, levels = c("sedang", "berat", "kritis"))
 
@@ -415,7 +435,7 @@ ggsave("los.jpg", bg="white")
 ```
 
 
-### Derajat dan Saturasi
+### Grafik Derajat Klinis dan Saturasi
 ```{r}
 ### Data Saturasi kenapa ada yg persen ada yg ga persen :(
 data$Saturasi <- ifelse(data$Saturasi <= 1, data$Saturasi * 100, data$Saturasi) 
@@ -470,7 +490,8 @@ ggsave("saturasi.jpg", bg="white")
 ___
 ***
 
-## Derajat (Sedang & Berat-Kritis) vs everything else
+## Analisis Sedang vs Berat-Kritis
+### Recode Derajat (Sedang & Berat-Kritis)
 Analisa jika derajat klinis berat dan kritis digabungkan (menjadi tabel 2x2), sehingga memaksimalkan sampel dan mempermudah interpretasi. 
 
 ```{r}
@@ -499,27 +520,336 @@ data %>%
 ```
 
 
-### Citation
-|R Core Team (2021). R: A language and environment for statistical computing. R Foundation for
-|  Statistical Computing, Vienna, Austria. URL https://www.R-project.org/.
-|Jennifer Bryan (2021). googlesheets4: Access Google Sheets using the Sheets API V4. R package
-|  version 0.3.0. https://CRAN.R-project.org/package=googlesheets4
-|Wickham et al., (2019). Welcome to the tidyverse. Journal of Open Source Software, 4(43),
-|  1686, https://doi.org/10.21105/joss.01686
-|H. Wickham. ggplot2: Elegant Graphics for Data Analysis. Springer-Verlag New York, 2016.
-|Richard Iannone, Joe Cheng and Barret Schloerke (2021). gt: Easily Create Presentation-Ready
-|  Display Tables. R package version 0.3.0. https://CRAN.R-project.org/package=gt
-|Daniel D. Sjoberg, Michael Curry, Margie Hannum, Joseph Larmarange, Karissa Whiting and Emily
-|  C. Zabor (2021). gtsummary: Presentation-Ready Data Summary and Analytic Result Tables. R
-|  package version 1.4.2. https://CRAN.R-project.org/package=gtsummary
-|Chun-Hui Gao (2021). ggVennDiagram: A 'ggplot2' Implement of Venn Diagram. R package version
-|  1.1.4. https://CRAN.R-project.org/package=ggVennDiagram
-|Kay M (2021). _ggdist: Visualizations of Distributions and Uncertainty_. doi:
-|  10.5281/zenodo.3879620 (URL: https://doi.org/10.5281/zenodo.3879620), R package version 3.0.0,
-|  <URL: https://mjskay.github.io/ggdist/>.  
+# Final {.tabset}
+___
+***
+
+## Final Data in Table
+
+**NOTE**: Data Nama dan no.RM tidak ditayangkan
+```{r}
+data %>%
+  select(c(-1,-2,-3)) %>%
+  # knitr::kable("html") %>%
+  # kable_styling("striped") %>% 
+  # scroll_box(width = "100%")
+  datatable(options = list(
+  pageLength=15, scrollX='400px'), filter = 'top')
+```
+
+## Bivariat Table Derajat Klinis (Sedang & Berat-Kritis) vs Everything Else
+
+```{r}
+data %>%
+  select(4:5, 7, 9:22, peny.komorbid, 24:34, 40:41, 44, 46:48) %>%
+  tbl_summary(by=derajat_klinis,
+              statistic = list(all_continuous() ~ "{mean} ({sd})", all_categorical() ~ "{n} ({p}%)"),
+              percent = "row",
+              missing = "no") %>%
+  add_p(test= list(all_continuous() ~ "t.test", all_categorical() ~ "fisher.test")) %>%
+  add_overall() %>%
+  add_n() %>%
+  modify_caption("<b>Table X.</b> Rangkuman data demografi, klinis dan luaran berdasarkan derajat klinis COVID-19") %>%
+  modify_spanning_header(c("stat_1", "stat_2") ~ "**Derajat Klinis COVID-19**") %>%
+  modify_header(label ~ "**Variabel**") %>%
+  bold_labels()
+```
+
+
+## Waktu & Frequency
+
+```{r fig.width=12, fig.align='center',message=FALSE, warning=FALSE}
+data_waktu <-data %>% 
+  select(Tanggal.MRS, derajat_klinis) %>%
+  mutate(jumlah=1)
+
+data_waktu <- data_waktu %>%
+  mutate(month=format(Tanggal.MRS, "%m %Y"))
+data_waktu$month <- format(data_waktu$month, format= "%m %Y")
+
+date <- ggplot(data=data, aes(x=as.Date(Tanggal.MRS))) +
+  geom_histogram(fill="#5089C6", alpha=0.5, color="#5089C6") +
+  scale_x_date(date_labels = "%m/%y",
+               date_breaks = "1 month",
+               date_minor_breaks = "1 week") +
+  theme_minimal() +
+  labs(
+    title = NULL,
+    y = "Jumlah Pasien (orang)",
+    x = "Waktu (bulan/tahun)") +
+  theme(axis.title.x = element_text(family="arial", face="bold", colour="black", size=14)) +
+  theme(axis.title.y = element_text(family="arial", face="bold", colour="black", size=14)) +
+  theme(axis.text.x = element_text(family="arial", face="plain", colour="black", size=12)) +
+  theme(axis.text.y = element_text(family="arial", face="plain", colour="black", size=12))
+date
+```
+
+
+## Usia & Gender
+
+```{r}
+age_dist_gender <- ggplot(data = data, aes(x= Jenis.Kelamin, y=Umur, fill=Jenis.Kelamin)) +
+  ggdist::stat_halfeye(adjust=0.5, width=0.5, .width=0, justification=-0.2, point_colour=NA, show.legend = F) +
+  geom_boxplot(width=0.12, alpha=0.5, show.legend = F) +
+  ggdist::stat_dots(side="left", justification=1.12, binwidth=1, show.legend = F) +
+  theme_minimal() +
+  labs(
+    title = NULL,
+    y = "Usia (tahun)",
+    x = "Jenis Kelamin",
+    fill="Jenis Kelamin"
+  ) +
+  theme(axis.title.x = element_text(family="arial", face="bold", colour="black", size=14)) +
+  theme(axis.title.y = element_text(family="arial", face="bold", colour="black", size=14)) +
+  theme(axis.text.x = element_text(family="arial", face="plain", colour="black", size=12)) +
+  theme(axis.text.y = element_text(family="arial", face="plain", colour="black", size=12)) +
+  scale_y_continuous(breaks=c(seq(from=0, to=90, by=10))) +
+  scale_x_discrete(labels=c("Laki-laki", "Perempuan")) +
+  coord_flip()
+
+#print(age_dist_gender)
+```
+
+```{r warning=FALSE}
+age_dist <- ggplot(data = data, aes(y=Umur)) +
+  ggdist::stat_halfeye(adjust=0.5, width=0.5, .width=0, justification=-0.2, point_colour=NA, show.legend = F, fill="#5089C6", alpha=0.5) +
+  geom_boxplot(width=0.12, alpha=0.5, show.legend = F, color="#DF5E5E", fill="#E98580", alpha=0.5) +
+  ggdist::stat_dots(side="left", justification=1.12, binwidth=1, show.legend = F, fill="#5089C6", alpha=0.5) +
+  theme_minimal() +
+  labs(
+    title = NULL,
+    y = "Usia (tahun)",
+    x = NULL) +
+  theme(axis.title.x = element_text(family="arial", face="bold", colour="black", size=14)) +
+  theme(axis.title.y = element_text(family="arial", face="bold", colour="black", size=14)) +
+  theme(axis.text.x = element_text(family="arial", face="plain", colour="black", size=12)) +
+  theme(axis.text.y = element_text(family="arial", face="plain", colour="black", size=12)) +
+  scale_y_continuous(breaks=c(seq(from=0, to=90, by=10))) +
+  scale_x_discrete(element_blank()) +
+  coord_flip()
+
+#print(age_dist)
+```
+
+```{r message=FALSE, fig.width=9, fig.height=8, fig.align='center', warning=FALSE}
+age_dist/age_dist_gender + plot_annotation(tag_levels = "A")
+ggsave("distribusi usia.jpg", bg="white")
+```
+
+
+## Derajat Klinis ~ Usia
+
+```{r include=F}
+interaction <- ggplot(data = data, aes(x=Umur, y=Derajat_new, shape=Derajat_new,  colour=Komorbid_DM, fill=Komorbid_HT)) +
+  geom_jitter(height=0.25) +
+  scale_shape_manual(values=c(21,22,24))
   
+#interaction
+```
+
+```{r include=FALSE}
+interaction2 <- ggplot(data = data, aes(x=Umur, y=Derajat_new)) +
+  geom_jitter(height=0.15, aes(shape=Derajat_new,  colour=Komorbid_DM, fill=Komorbid_HT)) +
+  #ggdist::stat_halfeye(justification=1.5, side="bottom", adjust=0.8, .width=0, width=0.5, height=0.3, point_colour=NA, aes(fill=Derajat_new)) +
+  geom_boxplot(width=0.2, alpha=0.3, position = "dodge") +
+  scale_shape_manual(values=c(21,22,24))
+#interaction2
+```
+
+```{r include=FALSE}
+data$Derajat_new <- factor(data$Derajat_new, levels = c("sedang", "berat", "kritis"))
+
+### Anova
+anova_int <- summary(aov(data=data, Umur ~ Derajat_new))
+anova_p <- anova_int[[1]][[1,"Pr(>F)"]]
+anova_text <- paste0("Anova", " ", "p=", anova_int[[1]][[1,"Pr(>F)"]]," ", "(p=",  ifelse(anova_p <= 0.001, print("<0,001"), NA)[1], ")") 
+grob_anova <- grobTree(textGrob(anova_text, x=0.03,  y=0.95, hjust=0, gp=gpar(fontsize=8, fontface="italic")))
+```
+
+
+```{r fig.align='center', fig.width=10, fig.height=5, message=FALSE}
+interaction3 <- ggplot(data = data, aes(x=Umur, y=Derajat_new)) +
+  geom_jitter(height=0.15, alpha=0.7, aes(shape=peny.komorbid,  colour=Komorbid_DM, fill=Komorbid_HT), show.legend = T, size=2.5) +
+  scale_color_manual(values = c("#FF3D68", "#5089C6")) + # outline warna merah/oranye artinya DM
+  scale_fill_manual(values = c("#FFAA4C", "#FFFFFF")) + # isi warna merah artinya HT
+  scale_shape_manual(values=c(21,22,24)) +
+  theme_minimal() +
+  xlab("Usia Pasien (Tahun)") +
+  ylab("Derajat Klinis COVID-19") +
+  theme(axis.title.x = element_text(family="arial", face="bold", colour="black", size=14)) +
+  theme(axis.title.y = element_text(family="arial", face="bold", colour="black", size=14)) +
+  theme(axis.text.x = element_text(family="arial", face="plain", colour="black", size=12)) +
+  theme(axis.text.y = element_text(family="arial", face="plain", colour="black", size=12)) +
+  scale_x_continuous(breaks=c(seq(from=0, to=90, by=10))) + 
+  scale_y_discrete(labels=c("Sedang", "Berat", "Kritis")) +
+  theme(legend.position = "bottom") +
+  guides(color = guide_legend(override.aes = list(shape=21, color = c("#FF3D68", "#5089C6")))) +
+  guides(fill = guide_legend(override.aes = list(shape=21, fill = c("#FFAA4C", "#FFFFFF"), color = "#5089C6"))) +
+  labs(colour = "Diabetes Melitus", fill = "Hipertensi", shape = "Komorbid")
+  
+  
+#interaction3
+
+interaction3b <- ggplot(data = data, aes(x=Umur, y=Derajat_new)) +
+  geom_boxplot(width=0.2, alpha=0.3, position = "dodge", aes(fill=Derajat_new), show.legend=F) +
+  scale_fill_manual(values = c("#FDD2BF", "#E98580", "#DF5E5E")) +
+  theme_transparent()
+#interaction3b
+
+grob3b <- ggplotGrob(interaction3b)
+
+xmin <- min(data$Umur)
+xmax <- max(data$Umur)
+
+interaction3 + annotation_custom(grob = grob3b, xmin = xmin, xmax = xmax, ymin = 0.0 , ymax = 3.3) + annotation_custom(grob_anova)
+ggsave("interaction.jpg", bg="white")
+```
+
+## Derajat Klinis ~ Saturasi O2
+
+```{r include=FALSE}
+### Data Saturasi kenapa ada yg persen ada yg ga persen :(
+data$Saturasi <- ifelse(data$Saturasi <= 1, data$Saturasi * 100, data$Saturasi) 
+
+
+### Anova
+anova_sat <- summary(aov(data=data, Saturasi ~ Derajat_new))
+anova_p_sat <-anova_sat[[1]][[1,"Pr(>F)"]]
+anova_sat_text <- paste0("Anova", " ", "p=", anova_sat[[1]][[1,"Pr(>F)"]]," ", "(p=",  ifelse(anova_p_sat <= 0.001, print("<0,001"), NA)[1], ")") 
+grob_anova_sat <- grobTree(textGrob(anova_sat_text, x=0.10,  y=0.95, hjust=0, gp=gpar(fontsize=8, fontface="italic")))
+```
+
+
+```{r fig.align='center', fig.width=10, fig.height=5, message=FALSE}
+sat <- ggplot(data=data, aes(x=Saturasi, y=Derajat_new)) +
+   geom_jitter(height=0.25, alpha=0.7, aes(shape=peny.komorbid,  colour=rujukan, fill=meninggal), show.legend = T, size=2.5) +
+  scale_color_manual(values = c("#FF3D68", "#5089C6")) + # outline warna merah/oranye artinya rujuk
+  scale_fill_manual(values = c("#FFAA4C", "#FFFFFF")) + # isi warna merah artinya meninggal
+  scale_shape_manual(values=c(24,22)) +
+  theme_minimal() +
+  xlab("Saturasi Oksigen Darah Perifer (%)") +
+  ylab("Derajat Klinis COVID-19") +
+  theme(axis.title.x = element_text(family="arial", face="bold", colour="black", size=14)) +
+  theme(axis.title.y = element_text(family="arial", face="bold", colour="black", size=14)) +
+  theme(axis.text.x = element_text(family="arial", face="plain", colour="black", size=12)) +
+  theme(axis.text.y = element_text(family="arial", face="plain", colour="black", size=12)) +
+  scale_x_continuous(limits = c(65,100), breaks=c(seq(from=65, to=100, by=5))) + 
+  scale_y_discrete(labels=c("Sedang", "Berat", "Kritis")) +
+  theme(legend.position = "bottom") +
+  guides(color = guide_legend(override.aes = list(shape=24, color = c("#FF3D68", "#5089C6")))) +
+  guides(fill = guide_legend(override.aes = list(shape=24, fill = c("#FFAA4C", "#FFFFFF"), color = "#5089C6"))) +
+  guides(shape = guide_legend(override.aes = list(shape=c(24,22)))) +
+  labs(colour = "Rujuk", fill = "Meninggal", shape = "Komorbid")
+      
+#sat
+
+sat_boxplot <- ggplot(data = data, aes(x=Saturasi, y=Derajat_new)) +
+  geom_boxplot(width=0.2, alpha=0.3, position = "dodge", aes(fill=Derajat_new), show.legend=F) +
+  scale_fill_manual(values = c("#FDD2BF", "#E98580", "#DF5E5E")) +
+  theme_transparent()
+
+#sat_boxplot
+
+grob_sat <- ggplotGrob(sat_boxplot)
+
+xmin <- min(data$Saturasi)
+xmax <- max(data$Saturasi)
+
+sat + annotation_custom(grob = grob_sat, xmin = xmin, xmax = xmax, ymin = 0.00 , ymax = 3.1) + annotation_custom(grob_anova_sat)
+ggsave("saturasi.jpg", bg="white")
+```
+
+## Durasi Rawat Inap ~ Derajat Klinis
+
+```{r include=FALSE}
+data$Derajat_new <- factor(data$Derajat_new, levels = c("sedang", "berat", "kritis"))
+
+### Anova
+anova_los <- summary(aov(data=data, Durasi.Rawat.Inap ~ Derajat_new))
+anova_p_los <-anova_los[[1]][[1,"Pr(>F)"]]
+anova_los_text <- paste0("Anova", " ", "p=", anova_los[[1]][[1,"Pr(>F)"]]," ", "(p=",  ifelse(anova_p_los <= 0.001, print("<0,001"), NA)[1], ")") 
+grob_anova_los <- grobTree(textGrob(anova_los_text, x=0.60,  y=0.95, hjust=0, gp=gpar(fontsize=8, fontface="italic")))
+
+
+```
+
+
+```{r fig.align='center', fig.width=10, fig.height=5, message=FALSE}
+los <- ggplot(data=data, aes(x=Durasi.Rawat.Inap, y=Derajat_new)) +
+   geom_jitter(height=0.15, alpha=0.7, aes(shape=peny.komorbid,  colour=rujukan, fill=meninggal), show.legend = T, size=2.5) +
+  scale_color_manual(values = c("#FF3D68", "#5089C6")) + # outline warna merah/oranye artinya rujuk
+  scale_fill_manual(values = c("#FFAA4C", "#FFFFFF")) + # isi warna merah artinya meninggal
+  scale_shape_manual(values=c(24,22)) +
+  theme_minimal() +
+  xlab("Lama Rawat Inap (Hari)") +
+  ylab("Derajat Klinis COVID-19") +
+  theme(axis.title.x = element_text(family="arial", face="bold", colour="black", size=14)) +
+  theme(axis.title.y = element_text(family="arial", face="bold", colour="black", size=14)) +
+  theme(axis.text.x = element_text(family="arial", face="plain", colour="black", size=12)) +
+  theme(axis.text.y = element_text(family="arial", face="plain", colour="black", size=12)) +
+  scale_x_continuous(breaks=c(seq(from=0, to=18, by=1))) + 
+  scale_y_discrete(labels=c("Sedang", "Berat", "Kritis")) +
+  theme(legend.position = "bottom") +
+  guides(color = guide_legend(override.aes = list(shape=24, color = c("#FF3D68", "#5089C6")))) +
+  guides(fill = guide_legend(override.aes = list(shape=24, fill = c("#FFAA4C", "#FFFFFF"), color = "#5089C6"))) +
+  guides(shape = guide_legend(override.aes = list(shape=c(24,22)))) +
+  labs(colour = "Rujuk", fill = "Meninggal", shape = "Komorbid")
+      
+#los
+
+
+los_boxplot <- ggplot(data = data, aes(x=Durasi.Rawat.Inap, y=Derajat_new)) +
+  geom_boxplot(width=0.2, alpha=0.3, position = "dodge", aes(fill=Derajat_new), show.legend=F) +
+  scale_fill_manual(values = c("#FDD2BF", "#E98580", "#DF5E5E")) +
+  theme_transparent()
+
+#los_boxplot
+
+grob_los <- ggplotGrob(los_boxplot)
+
+xmin <- min(data$Durasi.Rawat.Inap)
+xmax <- max(data$Durasi.Rawat.Inap)
+
+los + annotation_custom(grob = grob_los, xmin = xmin, xmax = xmax, ymin = 0.0 , ymax = 3.3) + annotation_custom(grob_anova_los)
+ggsave("los.jpg", bg="white")
+```
+
+## Multivariate {.tabset}
+
+### Finding Cutoff Numeric Variable
+
+
+### Building Regression Model
+
+# Citation {.tabset}
+**Detail for Reproducible Research**
+**Software yang digunakan untuk analisa**
+
+## Citation
+
+* R Core Team (2021). R: A language and environment for statistical computing. R Foundation for Statistical Computing, Vienna, Austria. URL https://www.R-project.org/.
+
+* Jennifer Bryan (2021). googlesheets4: Access Google Sheets using the Sheets API V4. R package version 0.3.0. https://CRAN.R-project.org/package=googlesheets4
+
+* Wickham et al., (2019). Welcome to the tidyverse. Journal of Open Source Software, 4(43), 1686, https://doi.org/10.21105/joss.01686
+
+* H. Wickham. ggplot2: Elegant Graphics for Data Analysis. Springer-Verlag New York, 2016.
+
+* Richard Iannone, Joe Cheng and Barret Schloerke (2021). gt: Easily Create Presentation-Ready Display Tables. R package version 0.3.0. https://CRAN.R-project.org/package=gt
+
+* Daniel D. Sjoberg, Michael Curry, Margie Hannum, Joseph Larmarange, Karissa Whiting and Emily C. Zabor (2021). gtsummary: Presentation-Ready Data Summary and Analytic Result Tables. R package version 1.4.2. https://CRAN.R-project.org/package=gtsummary
+
+* Chun-Hui Gao (2021). ggVennDiagram: A 'ggplot2' Implement of Venn Diagram. R package version 1.1.4. https://CRAN.R-project.org/package=ggVennDiagram
+
+* Kay M (2021). _ggdist: Visualizations of Distributions and Uncertainty_. doi: 10.5281/zenodo.3879620 (URL: https://doi.org/10.5281/zenodo.3879620), R package version 3.0.0, https://mjskay.github.io/ggdist/.  
+
+* Thomas Lin Pedersen (2020). patchwork: The Composer of Plots. R package version 1.1.1. https://CRAN.R-project.org/package=patchwork
+
+*  Yihui Xie, Joe Cheng and Xianying Tan (2021). DT: A Wrapper of the JavaScript Library 'DataTables'. R package version 0.18. https://CRAN.R-project.org/package=DT
+
+## Session Info
 ```{r, echo=FALSE}
-package <- c("base", "googlesheets4", "tidyverse", "ggplot2", "gt", "gtsummary", "ggVennDiagram", "ggdist", "ggpubr", "patchwork")
+package <- c("base", "googlesheets4", "tidyverse", "ggplot2", "gt", "gtsummary", "ggVennDiagram", "ggdist", "ggpubr", "patchwork", "DT")
 #lapply(package, citation)
 sessionInfo()
 ```
