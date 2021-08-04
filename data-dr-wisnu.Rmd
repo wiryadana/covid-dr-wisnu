@@ -3,7 +3,7 @@ title: "Hasil Penelitian COVID-19 dr Wisnu"
 author: "Kadek Adit Wiryadana"
 date: "last Updated `r Sys.time()`"
 output:
-  html_document: 
+  html_document:
     code_folding: hide
 ---
 
@@ -33,6 +33,9 @@ library(grid)
 library(kableExtra)
 library(DT)
 library(cutpointr)
+library(epitools)
+library(officer)
+library(googledrive)
 ```
 
 ## Import Data
@@ -122,8 +125,7 @@ data <- data %>%
 demog <- data %>% 
   select(Jenis.Kelamin,
          Umur) %>% 
-  tbl_summary(statistic = list(all_continuous() ~ "{mean} ({sd})")) %>% 
-  as_flex_table()
+  tbl_summary(statistic = list(all_continuous() ~ "{mean} ({sd})")) 
 demog
 
 age_by_gender <- data %>% 
@@ -138,7 +140,7 @@ age_by_gender <- data %>%
               ) %>%
   add_p(test=list(all_continuous() ~ "t.test", all_categorical() ~ "fisher.test")) %>%
   add_n() %>%
-  add_overall()
+  add_overall() 
   
 age_by_gender
 ```
@@ -190,7 +192,7 @@ data[,gejala_tam_coloumn] <- lapply(data[,gejala_tam_coloumn], factor, levels=c(
 
 gejala <- data %>%
   select(9:22) %>% 
-  tbl_summary()
+  tbl_summary() 
 
 gejala
 
@@ -199,7 +201,7 @@ gejala_by_severity <- data %>%
   tbl_summary(by=Derajat_new, missing = "no", percent = "row") %>%
   add_p(test=list(all_continuous() ~ "t.test", all_categorical() ~ "fisher.test")) %>%
   add_n() %>%
-  add_overall()
+  add_overall() 
 
 gejala_by_severity
 ```
@@ -217,7 +219,7 @@ data[,komorbid_coloumn] <- lapply(data[,komorbid_coloumn], factor, levels=c("ya"
 
 komorbid <- data %>%
   select(24:31,peny.komorbid) %>% 
-  tbl_summary()
+  tbl_summary() 
 
 komorbid
 
@@ -226,7 +228,7 @@ komorbid <- data %>%
   tbl_summary(by=Derajat_new, percent = "row") %>%
   add_p(test=list(all_categorical() ~ "fisher.test")) %>%
   add_n() %>%
-  add_overall()
+  add_overall() 
 
 komorbid
 ```
@@ -252,8 +254,7 @@ komorbid_venn
 ```{r}
 treat <- data %>%
   select(32,33) %>%
-  tbl_summary()
-
+  tbl_summary() 
 treat
 
 ### Perbaiki tidak memiliki komorbid pada treatment anggap missing
@@ -282,7 +283,7 @@ data$Xray <- as.factor(data$Xray)
 
 xray <- data %>%
   select(Xray) %>%
-  tbl_summary()
+  tbl_summary() 
 xray
 
 xray_by_severity <- data %>%
@@ -290,8 +291,7 @@ xray_by_severity <- data %>%
   tbl_summary(by=Derajat_new, missing = "no", , percent = "row") %>%
   add_p(test=list(all_categorical() ~ "fisher.test")) %>%
   add_n() %>%
-  add_overall()
-
+  add_overall() 
 xray_by_severity
 ```
 
@@ -307,7 +307,7 @@ data$meninggal <- factor(data$meninggal, levels = c("ya", "tidak"))
 
 outcome <- data %>%
   select(41,44:46) %>%
-  tbl_summary()
+  tbl_summary() 
 
 outcome
 
@@ -317,8 +317,7 @@ outcome_by_severity <- data %>%
   tbl_summary(by=Derajat_new, percent = "row", statistic = list(all_continuous() ~ "{mean} ({sd})")) %>%
   add_p(test=list(all_categorical() ~ "fisher.test", all_continuous() ~ "aov")) %>%
   add_n() %>%
-  add_overall()
-
+  add_overall() 
 outcome_by_severity
 ```
 
@@ -516,7 +515,7 @@ data %>%
   modify_caption("<b>Table X.</b> Rangkuman data demografi, klinis dan luaran berdasarkan derajat klinis COVID-19") %>%
   modify_spanning_header(c("stat_1", "stat_2") ~ "**Derajat Klinis COVID-19**") %>%
   modify_header(label ~ "**Variabel**") %>%
-  bold_labels()
+  bold_labels() 
 ```
 
 
@@ -540,7 +539,7 @@ data %>%
 ## Bivariat Table Derajat Klinis (Sedang & Berat-Kritis) vs Everything Else
 
 ```{r}
-data %>%
+biv_p <- data %>%
   select(4:5, 7, 9:22, peny.komorbid, 24:34, 40:41, 44, 46:48) %>%
   tbl_summary(by=derajat_klinis,
               statistic = list(all_continuous() ~ "{mean} ({sd})", all_categorical() ~ "{n} ({p}%)"),
@@ -553,8 +552,25 @@ data %>%
   modify_spanning_header(c("stat_1", "stat_2") ~ "**Derajat Klinis COVID-19**") %>%
   modify_header(label ~ "**Variabel**") %>%
   bold_labels()
+
+biv_p
+
+sect_properties <- prop_section(
+  page_size = page_size(orient = "landscape",
+    width = 8.3, height = 11.7),
+  type = "continuous",
+  page_margins = page_mar()
+)
+biv_p%>% 
+  as_flex_table() %>%
+  save_as_docx(biv_p, path = "biv.p.table.docx", pr_section = sect_properties)
+
+
 ```
 
+```{r eval=T}
+drive_upload(media = "biv.p.table.docx", path = as_id("https://drive.google.com/drive/u/2/folders/1LcqP38WQYIIxNeWaoDAb85MZjCTYgnXh"))
+```
 
 ## Waktu & Frequency
 
@@ -814,7 +830,7 @@ los + annotation_custom(grob = grob_los, xmin = xmin, xmax = xmax, ymin = 0.0 , 
 ggsave("los.jpg", bg="white")
 ```
 
-## Multivariate {.tabset}
+## Bivariate & Multivariate {.tabset}
 
 ### Finding Cutoff Numeric Variable
 #### Usia
@@ -874,21 +890,67 @@ data$gej.utama.sesak <- factor(data$gej.utama.sesak, levels = c("Sesak Napas", "
 
 #### Bivariate Analysis
 ```{r}
-data %>%
-  select(Jenis.Kelamin, usia_cut, gej.utama.sesak, saturasi_cut, xray_binary, peny.komorbid, derajat_klinis) %>%
-  tbl_summary(by=derajat_klinis,
-              statistic = list(all_continuous() ~ "{mean} ({sd})", all_categorical() ~ "{n} ({p}%)"),
-              percent = "row",
-              missing = "no") %>%
-  add_p(test= list(all_continuous() ~ "t.test", all_categorical() ~ "fisher.test")) %>%
-  add_overall() %>%
-  add_n() %>%
-  modify_caption("<b>Table Y.</b> Data Jenis Kelamin, Sesak, Saturasi, Xray, Komorbid berdasarkan derajat klinis COVID-19") %>%
-  modify_spanning_header(c("stat_1", "stat_2") ~ "**Derajat Klinis COVID-19**") %>%
-  modify_header(label ~ "**Variabel**") %>%
-  bold_labels()
+# data %>%
+#   select(Jenis.Kelamin, usia_cut, gej.utama.sesak, saturasi_cut, xray_binary, peny.komorbid, derajat_klinis) %>%
+#   tbl_summary(by=derajat_klinis,
+#               statistic = list(all_continuous() ~ "{mean} ({sd})", all_categorical() ~ "{n} ({p}%)"),
+#               percent = "row",
+#               missing = "no") %>%
+#   add_p(test= list(all_continuous() ~ "t.test", all_categorical() ~ "fisher.test")) %>%
+#   add_overall() %>%
+#   add_n() %>%
+#   modify_caption("<b>Table Y.</b> Data Jenis Kelamin, Sesak, Saturasi, Xray, Komorbid berdasarkan derajat klinis COVID-19") %>%
+#   modify_spanning_header(c("stat_1", "stat_2") ~ "**Derajat Klinis COVID-19**") %>%
+#   modify_header(label ~ "**Variabel**") %>%
+#   bold_labels()
 ```
 
+```{r}
+data_biv <- data %>%
+  select(4, peny.komorbid, 24:25, 48:49,51:52)
+
+odd_r <- function(data, variable, by, ...) {
+  #variable = deparse(substitute(variable))
+  #by = deparse(substitute(by))
+  o <-oddsratio(x=data[[variable]], y=as.factor(data[[by]]))
+  odd <- style_sigfig(o$measure[2])
+  ci <- style_sigfig(o$measure[c(4,6)]) %>% paste(collapse = ", ")
+  str_glue("{odd} ({ci})")
+}
+
+biv_table <- data_biv %>%
+  #select(1,2,6,5) %>%
+  tbl_summary(by=derajat_klinis,
+              statistic = list(all_categorical() ~ "{n} ({p}%)"),
+              percent = "row",
+              missing = "no") %>%
+  add_p(test= list(all_categorical() ~ "fisher.test")) %>%
+  add_stat(fns = everything() ~ odd_r, fmt_fun = NULL, location = c(everything() ~ "label")) %>%
+  modify_header(list(add_stat_1 ~ "**OR (95% CI)**", all_stat_cols() ~ "**{level}**")) %>%
+  add_overall() %>%
+  add_n() %>%
+  modify_caption("<b>Table Y.</b> Rangkuman data demografi, klinis dan luaran berdasarkan derajat klinis COVID-19") %>%
+  modify_spanning_header(c("stat_1", "stat_2") ~ "**Derajat Klinis COVID-19**") %>%
+  modify_header(label ~ "**Variabel**") %>%
+  bold_labels() 
+
+biv_table
+
+sect_properties <- prop_section(
+  page_size = page_size(orient = "landscape",
+    width = 8.3, height = 11.7),
+  type = "continuous",
+  page_margins = page_mar()
+)
+biv_table%>% 
+  as_flex_table() %>%
+  save_as_docx(biv_table, path = "biv.odd.table.docx", pr_section = sect_properties)
+
+```
+
+```{r eval=T}
+drive_upload(media = "biv.odd.table.docx", path = as_id("https://drive.google.com/drive/u/2/folders/1LcqP38WQYIIxNeWaoDAb85MZjCTYgnXh"))
+```
 
 Jenis kelamin tidak berhubungan dengan derajat klinis.
 Saturasi oksigen memberikan separasi 100 dari derajat klinis. Antara perfect predictor atau karena data yang kurang bervariasi. Jenis kelamin dan Saturasi oksigen tidak dimasukan ke Model Regresi Logistik.
@@ -908,14 +970,32 @@ logres <- glm(derajat_klinis ~ usia_cut + gej.utama.sesak + xray_binary + peny.k
               data = data,
               family = binomial)
 summary(logres)
-tbl_regression(logres, 
+
+multi <- tbl_regression(logres, 
                exponentiate = TRUE) %>%
   add_global_p() %>%
   bold_p(t = 0.05) %>%
   bold_labels() %>%
   italicize_levels() %>%
   modify_caption("<b>Table Z.</b> <i>Adjusted Odd Ratio</i> dari beberapa prediktor derajat klinis COVID-19") %>%
-  modify_header(label ~ "**Variabel**")
+  modify_header(label ~ "**Variabel**") 
+
+multi
+
+sect_properties <- prop_section(
+  page_size = page_size(orient = "landscape",
+    width = 8.3, height = 11.7),
+  type = "continuous",
+  page_margins = page_mar()
+)
+multi%>% 
+  as_flex_table() %>%
+  save_as_docx(multi, path = "multivariate.docx", pr_section = sect_properties)
+
+
+```
+```{r eval=T}
+drive_upload(media = "multivariate.docx", path = as_id("https://drive.google.com/drive/u/2/folders/1LcqP38WQYIIxNeWaoDAb85MZjCTYgnXh"))
 ```
 
 
@@ -927,7 +1007,11 @@ tbl_regression(logres,
 
 * R Core Team (2021). R: A language and environment for statistical computing. R Foundation for Statistical Computing, Vienna, Austria. URL https://www.R-project.org/.
 
+*  JJ Allaire and Yihui Xie and Jonathan McPherson and Javier Luraschi and Kevin Ushey and Aron Atkins and Hadley Wickham and Joe Cheng and Winston Chang and Richard Iannone (2021). rmarkdown: Dynamic Documents for R. R package version 2.7. URL https://rmarkdown.rstudio.com.
+
 * Jennifer Bryan (2021). googlesheets4: Access Google Sheets using the Sheets API V4. R package version 0.3.0. https://CRAN.R-project.org/package=googlesheets4
+
+* Lucy D'Agostino McGowan and Jennifer Bryan (2020). googledrive: An Interface to Google Drive. R package version 1.0.1. https://CRAN.R-project.org/package=googledrive
 
 * Wickham et al., (2019). Welcome to the tidyverse. Journal of Open Source Software, 4(43), 1686, https://doi.org/10.21105/joss.01686
 
@@ -948,6 +1032,10 @@ tbl_regression(logres,
 * Thiele C, Hirschfeld G (2021). “cutpointr: Improved Estimation and Validation of Optimal Cutpoints in R.” _Journal of Statistical Software_, *98*(11), 1-27. doi: 10.18637/jss.v098.i11 (URL:https://doi.org/10.18637/jss.v098.i11).
 
 * Alboukadel Kassambara (2020). ggpubr: 'ggplot2' Based Publication Ready Plots. R package version 0.4.0. https://CRAN.R-project.org/package=ggpubr
+
+* Tomas J. Aragon (2020). epitools: Epidemiology Tools. R package version 0.5-10.1. https://CRAN.R-project.org/package=epitools
+
+* David Gohel (2021). officer: Manipulation of Microsoft Word and PowerPoint Documents. R package version 0.3.19. https://CRAN.R-project.org/package=officer
 
 ## Session Info
 ```{r, echo=FALSE}
