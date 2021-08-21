@@ -907,7 +907,7 @@ data$gej.utama.sesak <- factor(data$gej.utama.sesak, levels = c("Sesak Napas", "
 
 ```{r}
 data_biv <- data %>%
-  select(4, peny.komorbid, 24:25, 48:49,51:52)
+  select(4, peny.komorbid, 24:25, `komorbid CKD`, 48:49,51:52)
 
 odd_r <- function(data, variable, by, ...) {
   #variable = deparse(substitute(variable))
@@ -962,11 +962,13 @@ data$usia_cut <- factor(data$usia_cut, levels = c("Kurang dari 50", "Lebih dari/
 data$xray_binary <- factor(data$xray_binary, levels = c("Normal", "Abnormal"))
 data$gej.utama.sesak <- factor(data$gej.utama.sesak, levels = c("Bukan Sesak", "Sesak Napas"))
 data$peny.komorbid <- factor(data$peny.komorbid, levels = c("tidak", "ada"))
+data$`komorbid CKD` <- factor(data$`komorbid CKD`, levels = c("tidak", "ya"))
+data$Komorbid_DM <- factor(data$Komorbid_DM, levels = c("tidak", "ya"))
 data$derajat_klinis <- factor(data$derajat_klinis, levels = c("sedang", "berat/kritis"))
 
 
 
-logres <- glm(derajat_klinis ~ usia_cut + gej.utama.sesak + xray_binary + peny.komorbid,
+logres <- glm(derajat_klinis ~ usia_cut + gej.utama.sesak + xray_binary + Komorbid_HT + Komorbid_DM + `komorbid CKD`,
               data = data,
               family = binomial)
 summary(logres)
@@ -997,6 +999,35 @@ multi%>%
 ```{r eval=T}
 drive_upload(media = "multivariate.docx", path = as_id("https://drive.google.com/drive/u/2/folders/1LcqP38WQYIIxNeWaoDAb85MZjCTYgnXh"))
 ```
+
+#### Revised
+
+```{r}
+### Refactor
+data$Komorbid_HT <- factor(data$Komorbid_HT, levels = c("tidak", "ya"))
+data$Komorbid_DM <- factor(data$Komorbid_DM, levels = c("tidak", "ya"))
+#data$derajat_klinis <- factor(data$derajat_klinis, levels = c("sedang", "berat/kritis"))
+
+
+
+logres2 <- glm(derajat_klinis ~ Komorbid_HT + Komorbid_DM,
+              data = data,
+              family = binomial)
+summary(logres2)
+
+multi2 <- tbl_regression(logres2, 
+               exponentiate = TRUE) %>%
+  add_global_p() %>%
+  bold_p(t = 0.05) %>%
+  bold_labels() %>%
+  italicize_levels() %>%
+  modify_caption("<b>Table Z.</b> <i>Adjusted Odd Ratio</i> dari beberapa prediktor derajat klinis COVID-19") %>%
+  modify_header(label ~ "**Variabel**") 
+
+multi2
+
+```
+
 
 
 # Citation {.tabset}
