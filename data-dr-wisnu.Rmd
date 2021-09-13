@@ -678,8 +678,9 @@ data$Derajat_new <- factor(data$Derajat_new, levels = c("sedang", "berat", "krit
 ### Anova
 anova_int <- summary(aov(data=data, Umur ~ Derajat_new))
 anova_p <- anova_int[[1]][[1,"Pr(>F)"]]
-anova_text <- paste0("Anova", " ", "p=", anova_int[[1]][[1,"Pr(>F)"]]," ", "(p=",  ifelse(anova_p <= 0.001, print("<0,001"), NA)[1], ")") 
-grob_anova <- grobTree(textGrob(anova_text, x=0.03,  y=0.95, hjust=0, gp=gpar(fontsize=8, fontface="italic")))
+#anova_text <- paste0("Anova", " ", "p=", anova_int[[1]][[1,"Pr(>F)"]]," ", "(p=",  ifelse(anova_p <= 0.001, print("<0,001"), NA)[1], ")") 
+anova_text <- paste0("Anova", " ", "(p=",  ifelse(anova_p <= 0.001, print("<0,001"), NA)[1], ")") 
+grob_anova <- grobTree(textGrob(anova_text, x=0.03,  y=0.95, hjust=0, gp=gpar(fontsize=14, fontface="italic")))
 ```
 
 
@@ -731,8 +732,9 @@ data$Saturasi <- ifelse(data$Saturasi <= 1, data$Saturasi * 100, data$Saturasi)
 ### Anova
 anova_sat <- summary(aov(data=data, Saturasi ~ Derajat_new))
 anova_p_sat <-anova_sat[[1]][[1,"Pr(>F)"]]
-anova_sat_text <- paste0("Anova", " ", "p=", anova_sat[[1]][[1,"Pr(>F)"]]," ", "(p=",  ifelse(anova_p_sat <= 0.001, print("<0,001"), NA)[1], ")") 
-grob_anova_sat <- grobTree(textGrob(anova_sat_text, x=0.10,  y=0.95, hjust=0, gp=gpar(fontsize=8, fontface="italic")))
+#anova_sat_text <- paste0("Anova", " ", "p=", anova_sat[[1]][[1,"Pr(>F)"]]," ", "(p=",  ifelse(anova_p_sat <= 0.001, print("<0,001"), NA)[1], ")") 
+anova_sat_text <- paste0("Anova", " ", "(p=",  ifelse(anova_p_sat <= 0.001, print("<0,001"), NA)[1], ")") 
+grob_anova_sat <- grobTree(textGrob(anova_sat_text, x=0.10,  y=0.95, hjust=0, gp=gpar(fontsize=14, fontface="italic")))
 ```
 
 
@@ -783,8 +785,9 @@ data$Derajat_new <- factor(data$Derajat_new, levels = c("sedang", "berat", "krit
 ### Anova
 anova_los <- summary(aov(data=data, Durasi.Rawat.Inap ~ Derajat_new))
 anova_p_los <-anova_los[[1]][[1,"Pr(>F)"]]
-anova_los_text <- paste0("Anova", " ", "p=", anova_los[[1]][[1,"Pr(>F)"]]," ", "(p=",  ifelse(anova_p_los <= 0.001, print("<0,001"), NA)[1], ")") 
-grob_anova_los <- grobTree(textGrob(anova_los_text, x=0.60,  y=0.95, hjust=0, gp=gpar(fontsize=8, fontface="italic")))
+#anova_los_text <- paste0("Anova", " ", "p=", anova_los[[1]][[1,"Pr(>F)"]]," ", "(p=",  ifelse(anova_p_los <= 0.001, print("<0,001"), NA)[1], ")") 
+anova_los_text <- paste0("Anova", " ", "(p=",  ifelse(anova_p_los <= 0.001, print("<0,001"), NA)[1], ")") 
+grob_anova_los <- grobTree(textGrob(anova_los_text, x=0.60,  y=0.95, hjust=0, gp=gpar(fontsize=14, fontface="italic")))
 
 
 ```
@@ -829,6 +832,42 @@ xmax <- max(data$Durasi.Rawat.Inap)
 los + annotation_custom(grob = grob_los, xmin = xmin, xmax = xmax, ymin = 0.0 , ymax = 3.3) + annotation_custom(grob_anova_los)
 ggsave("los.jpg", bg="white")
 ```
+
+```{r}
+med.los_binary <- data %>%
+  select(Durasi.Rawat.Inap, derajat_klinis) %>%
+  tbl_summary(by=derajat_klinis,
+              statistic = list(all_continuous() ~ "{median} ({p25}, {p75})", all_categorical() ~ "{n} ({p}%)"),
+              percent = "row",
+              missing = "no") %>%
+  add_p(test= list(all_continuous() ~ "wilcox.test", all_categorical() ~ "fisher.test")) %>%
+  add_overall() %>%
+  add_n() %>%
+  modify_caption("<b>Table X.</b> Median Rawat Inap berdasarkan derajat klinis COVID-19") %>%
+  modify_spanning_header(c("stat_1", "stat_2") ~ "**Derajat Klinis COVID-19**") %>%
+  modify_header(label ~ "**Variabel**") %>%
+  bold_labels()
+med.los_binary
+
+```
+
+```{r}
+med.los_binary <- data %>%
+  select(Durasi.Rawat.Inap, Derajat_new) %>%
+  tbl_summary(by=Derajat_new,
+              statistic = list(all_continuous() ~ "{median} ({p25}, {p75})", all_categorical() ~ "{n} ({p}%)"),
+              percent = "row",
+              missing = "no") %>%
+  add_p(test= list(all_continuous() ~ "aov", all_categorical() ~ "fisher.test")) %>%
+  add_overall() %>%
+  add_n() %>%
+  modify_caption("<b>Table X.</b> Median Rawat Inap berdasarkan derajat klinis COVID-19") %>%
+  modify_spanning_header(c("stat_1", "stat_2") ~ "**Derajat Klinis COVID-19**") %>%
+  modify_header(label ~ "**Variabel**") %>%
+  bold_labels()
+med.los_binary
+```
+
 
 ## Bivariate & Multivariate {.tabset}
 
